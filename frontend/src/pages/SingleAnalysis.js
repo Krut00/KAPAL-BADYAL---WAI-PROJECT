@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import CompanySearch from '../components/CompanySearch';
 import { CCCComponentsChart, CCCTrendChart } from '../components/CCCChart';
+import API_URL from '../api';
 import './SingleAnalysis.css';
 
 function getErrorMessage(error, fallback) {
@@ -35,7 +36,7 @@ function SingleAnalysis() {
     try {
       const bseCode = getCompanyIdentifier(company);
       const response = await axios.post(
-        `http://localhost:8000/api/analysis/analyze-company`,
+        `${API_URL}/api/analysis/analyze-company`,
         null,
         {
           params: {

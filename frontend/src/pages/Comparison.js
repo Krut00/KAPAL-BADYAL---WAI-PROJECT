@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import CompanySearch from '../components/CompanySearch';
 import { ComparisonChart } from '../components/CCCChart';
+import API_URL from '../api';
 import './Comparison.css';
 
 function getErrorMessage(error, fallback) {
@@ -41,7 +42,7 @@ function Comparison() {
 
     try {
       const response = await axios.post(
-        `http://localhost:8000/api/analysis/compare-companies`,
+        `${API_URL}/api/analysis/compare-companies`,
         {
           company1_bse: getCompanyIdentifier(company1),
           company2_bse: getCompanyIdentifier(company2)

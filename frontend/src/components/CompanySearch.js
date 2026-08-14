@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import './CompanySearch.css';
+import API_URL from '../api';
 
 function CompanySearch({ onCompanySelect, placeholder = "Enter company name or BSE code" }) {
   const [searchQuery, setSearchQuery] = useState('');
@@ -20,7 +21,7 @@ function CompanySearch({ onCompanySelect, placeholder = "Enter company name or B
 
     setLoading(true);
     try {
-      const response = await axios.get(`http://localhost:8000/api/companies/search`, {
+      const response = await axios.get(`${API_URL}/api/companies/search`, {
         params: { q: value }
       });
       setResults(response.data.results || []);

@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: ccc-analyzer-api
+    env: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: CORS_ORIGINS
+        value: https://ccc-analyzer-web.onrender.com
+
+  - type: web
+    name: ccc-analyzer-web
+    env: static
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    staticPublishPath: build
+    envVars:
+      - key: REACT_APP_API_URL
+        value: https://ccc-analyzer-api.onrender.com
