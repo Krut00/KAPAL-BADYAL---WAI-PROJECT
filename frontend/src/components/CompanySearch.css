@@ -1,0 +1,107 @@
+/* CompanySearch.css - Modern Design */
+
+.company-search {
+  position: relative;
+  width: 100%;
+}
+
+.search-input {
+  width: 100%;
+  padding: 14px 18px;
+  font-size: 1.05rem;
+  border: 1.5px solid rgba(102, 126, 234, 0.4);
+  border-radius: 12px;
+  background: rgba(102, 126, 234, 0.1);
+  color: #fff;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
+  font-weight: 400;
+}
+
+.search-input::placeholder {
+  color: rgba(165, 180, 252, 0.6);
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: #667eea;
+  background: rgba(102, 126, 234, 0.15);
+  box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.2);
+}
+
+.search-loading {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  background: linear-gradient(135deg, rgba(48, 43, 99, 0.95) 0%, rgba(36, 36, 62, 0.95) 100%);
+  border: 1.5px solid rgba(102, 126, 234, 0.3);
+  backdrop-filter: blur(10px);
+  padding: 16px;
+  text-align: center;
+  color: #a5b4fc;
+  border-radius: 12px;
+  z-index: 10;
+  font-weight: 500;
+}
+
+.search-results {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  background: linear-gradient(135deg, rgba(48, 43, 99, 0.95) 0%, rgba(36, 36, 62, 0.95) 100%);
+  border: 1.5px solid rgba(102, 126, 234, 0.3);
+  backdrop-filter: blur(10px);
+  list-style: none;
+  padding: 8px 0;
+  margin: 0;
+  max-height: 350px;
+  overflow-y: auto;
+  border-radius: 12px;
+  z-index: 10;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+}
+
+.result-item {
+  padding: 14px 18px;
+  border-bottom: 1px solid rgba(102, 126, 234, 0.1);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.result-item:last-child {
+  border-bottom: none;
+}
+
+.result-item:hover {
+  background: rgba(102, 126, 234, 0.15);
+  padding-left: 24px;
+}
+
+.result-name {
+  font-weight: 600;
+  color: #fff;
+  flex-grow: 1;
+}
+
+.result-code {
+  font-size: 0.85rem;
+  color: #a5b4fc;
+  margin-left: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  min-width: 100px;
+  text-align: right;
+}
+
+.no-results {
+  padding: 20px;
+  text-align: center;
+  color: #a5b4fc;
+  font-weight: 300;
+}

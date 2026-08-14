@@ -1,0 +1,92 @@
+/* CCCChart.css - Modern Dark Theme */
+.chart-container {
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.15) 0%, rgba(118, 75, 162, 0.15) 100%);
+  backdrop-filter: blur(10px);
+  border: 1.5px solid rgba(102, 126, 234, 0.3);
+  border-radius: 16px;
+  padding: 30px;
+  margin-bottom: 30px;
+  box-shadow: 0 15px 40px rgba(102, 126, 234, 0.1);
+  transition: all 0.3s ease;
+}
+
+.chart-container:hover {
+  border-color: rgba(102, 126, 234, 0.5);
+  box-shadow: 0 20px 50px rgba(102, 126, 234, 0.15);
+}
+
+.chart-container h3 {
+  color: #fff;
+  margin-bottom: 25px;
+  font-size: 1.3rem;
+  font-weight: 700;
+}
+
+.recharts-wrapper {
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* Recharts Customization */
+.recharts-surface {
+  filter: invert(0) !important;
+}
+
+.recharts-text {
+  fill: #a5b4fc !important;
+  font-weight: 500;
+}
+
+.recharts-axis-tick {
+  fill: #a5b4fc !important;
+}
+
+.recharts-axis-line {
+  stroke: rgba(102, 126, 234, 0.3) !important;
+}
+
+.recharts-grid-horizontal,
+.recharts-grid-vertical {
+  stroke: rgba(102, 126, 234, 0.15) !important;
+}
+
+.recharts-default-tooltip {
+  background: rgba(48, 43, 99, 0.95) !important;
+  border: 1px solid rgba(102, 126, 234, 0.3) !important;
+  border-radius: 8px !important;
+  backdrop-filter: blur(10px);
+}
+
+.recharts-tooltip-label {
+  color: #fff !important;
+  font-weight: 600 !important;
+}
+
+.recharts-tooltip-item {
+  color: #a5b4fc !important;
+  font-weight: 500 !important;
+}
+
+.recharts-legend-wrapper {
+  padding-top: 20px !important;
+}
+
+.recharts-legend-item-text {
+  color: #a5b4fc !important;
+  font-weight: 500 !important;
+}
+
+/* Bar and Line Colors */
+.recharts-bar-rectangle {
+  filter: drop-shadow(0 4px 12px rgba(102, 126, 234, 0.3));
+}
+
+.recharts-line {
+  filter: drop-shadow(0 2px 8px rgba(102, 126, 234, 0.2));
+  stroke-width: 2.5 !important;
+}
+
+/* Hover Effects */
+.recharts-bar:hover {
+  filter: drop-shadow(0 8px 16px rgba(102, 126, 234, 0.5));
+}
