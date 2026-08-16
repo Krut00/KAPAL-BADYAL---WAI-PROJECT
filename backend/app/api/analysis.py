@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from typing import Dict, Any, List, Optional
 from app.services.ccc_analysis import CCCAnalysisService, WorkingCapitalProblem
 from app.services.screener import screener_service
+from app.services.data_validator import DataValidator
 
 router = APIRouter()
 
@@ -48,6 +49,10 @@ async def analyze_single_company(
         
         # Use Screener's published operating ratios when available.
         ccc_components = company_data.get('ccc_components') or CCCAnalysisService.calculate_ccc_components(company_data)
+        
+        # Validate and correct data if needed
+        ccc_components = DataValidator.validate_ccc_calculation(ccc_components)
+        
         benchmark = CCCAnalysisService.benchmark_for_industry(company_data.get('industry', ''))
         
         # Identify problems
@@ -68,6 +73,9 @@ async def analyze_single_company(
                     'payable_days': period['payable_days'],
                     'ccc': period['ccc'],
                 }
+                # Validate and correct if needed
+                period_ccc = DataValidator.validate_and_correct(bse_code, period.get('period', ''), period_ccc)
+                period_ccc = DataValidator.validate_ccc_calculation(period_ccc)
             else:
                 period_ccc = CCCAnalysisService.calculate_ccc_components({
                     'average_inventory': period['inventory'],
