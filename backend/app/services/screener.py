@@ -215,21 +215,42 @@ class ScreenerService:
         return result
 
     def _read_operating_ratios(self, soup: BeautifulSoup):
+        # Try to find the operating ratios table with all required fields
+        best_match = None
+        best_score = 0
+        
         for table in soup.find_all('table'):
             labels = [self._normalise_label(self._text(cell)) for cell in table.select('tbody td.text')]
-            if 'debtor days' not in labels or 'cash conversion cycle' not in labels:
-                continue
-            rows = {}
-            for row in table.select('tbody tr'):
-                cells = row.select('th, td')
-                if len(cells) < 2:
-                    continue
-                label = self._normalise_label(self._text(cells[0]))
-                rows[label] = [self._parse_number(self._text(cell)) for cell in cells[1:]]
-            header = table.select_one('thead tr')
-            periods = [self._text(cell) for cell in header.select('th, td')[1:]] if header else []
-            return rows, periods
-        return {}, []
+            
+            # Check which required fields are present
+            has_debtor = any('debtor' in label for label in labels)
+            has_inventory = any('inventory' in label for label in labels)
+            has_payable = any('payable' in label for label in labels)
+            has_ccc = any('cash conversion' in label for label in labels)
+            
+            score = sum([has_debtor, has_inventory, has_payable, has_ccc])
+            
+            if score >= 2:  # At least debtor days and CCC
+                rows = {}
+                for row in table.select('tbody tr'):
+                    cells = row.select('th, td')
+                    if len(cells) < 2:
+                        continue
+                    label = self._normalise_label(self._text(cells[0]))
+                    values = [self._parse_number(self._text(cell)) for cell in cells[1:]]
+                    rows[label] = values
+                
+                # Prefer tables with all four fields
+                if score > best_score:
+                    best_score = score
+                    header = table.select_one('thead tr')
+                    periods = [self._text(cell) for cell in header.select('th, td')[1:]] if header else []
+                    best_match = (rows, periods)
+                    
+                    if score == 4:  # Perfect match, use immediately
+                        break
+        
+        return best_match if best_match else ({}, [])
 
     @staticmethod
     def _find_row(rows: Dict[str, List[Optional[float]]], *names: str) -> List[Optional[float]]:
