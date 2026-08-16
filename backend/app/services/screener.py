@@ -1,4 +1,5 @@
 import re
+import time
 import requests
 from typing import Dict, Any, List, Optional
 from bs4 import BeautifulSoup
@@ -26,23 +27,62 @@ class ScreenerService:
             print(f"Error searching company: {e}")
             return []
     
+    # Screener renders consolidated figures by default and only falls back to
+    # standalone when a company publishes no consolidated statements.
+    STATEMENT_VARIANTS = (('consolidated/', 'consolidated'), ('', 'standalone'))
+    MAX_ATTEMPTS = 4
+
+    def _get_with_retry(self, url: str):
+        """GET a Screener URL, retrying transient throttling/server errors."""
+        last_error = None
+        for attempt in range(self.MAX_ATTEMPTS):
+            try:
+                response = self.session.get(url, timeout=15)
+            except requests.RequestException as exc:
+                last_error = exc
+            else:
+                if response.status_code == 404:
+                    return None
+                if response.status_code < 400:
+                    return response
+                last_error = f'HTTP {response.status_code}'
+                if response.status_code not in (429, 500, 502, 503, 504):
+                    break
+            if attempt < self.MAX_ATTEMPTS - 1:
+                time.sleep(1.5 * (2 ** attempt))
+        raise ValueError(f'Screener request failed for {url}: {last_error}')
+
+    def _fetch_company_page(self, bse_code: str):
+        """Return (soup, variant, url) for the statement Screener shows by default.
+
+        Standalone is used only when Screener has no consolidated page at all. A
+        throttled or malformed consolidated response raises instead of silently
+        falling back, since that would report a different set of figures.
+        """
+        for path, variant in self.STATEMENT_VARIANTS:
+            url = f"https://www.screener.in/company/{bse_code}/{path}"
+            response = self._get_with_retry(url)
+            if response is None:
+                continue
+            soup = BeautifulSoup(response.text, 'html.parser')
+            if soup.select_one('section#ratios') or variant == 'standalone':
+                return soup, variant, url
+            raise ValueError(f'Screener returned no ratios section for {url}')
+        raise ValueError(f'Screener page unavailable for {bse_code}')
+
     async def get_company_data(self, bse_code: str) -> Dict[str, Any]:
         """Fetch financial data for a company from Screener.in"""
         try:
-            # Construct URL for company details
-            url = f"https://www.screener.in/company/{bse_code}/"
-            response = self.session.get(url, timeout=10)
-            response.raise_for_status()
-            
-            company_data = await self._parse_company_page(response.text, bse_code)
-            return company_data
+            soup, variant, url = self._fetch_company_page(bse_code)
+            return await self._parse_company_page(soup, bse_code, variant, url)
         except Exception as e:
-            print(f"Error fetching company data: {e}")
+            print(f"Error fetching company data for {bse_code}: {e}")
             return {}
     
-    async def _parse_company_page(self, html: str, bse_code: str) -> Dict[str, Any]:
+    async def _parse_company_page(self, soup: BeautifulSoup, bse_code: str,
+                                  statement_type: str = 'consolidated',
+                                  source_url: str = '') -> Dict[str, Any]:
         """Parse annual operating and balance-sheet data from a Screener page."""
-        soup = BeautifulSoup(html, 'html.parser')
 
         profit_loss = self._read_table(soup, 'profit-loss')
         balance_sheet = self._read_table(soup, 'balance-sheet')
@@ -64,21 +104,7 @@ class ScreenerService:
                     continue
                 inventory_days = ratio_inventory_days[index] if index < len(ratio_inventory_days) else 0
                 payable_days = ratio_payable_days[index] if index < len(ratio_payable_days) else 0
-                
-                # Validate CCC calculation: CCC = inventory + receivable - payable
-                calculated_ccc = (inventory_days or 0) + (debtor_days[index] or 0) - (payable_days or 0)
-                # Use calculated CCC if published one seems wrong (allow 2 day tolerance for rounding)
-                if abs(calculated_ccc - ccc) > 2:
-                    ccc = calculated_ccc
-                
-                # Sanity check: if inventory days seems too low (<15 for most industries) or components seem off
-                # Try to use the balance sheet calculation as fallback
-                if (inventory_days or 0) < 10 and len(profit_loss) > 0:
-                    # Fallback: calculate from balance sheet if ratio table data seems questionable
-                    sales = self._find_row(profit_loss, 'sales', 'revenue', 'sales growth')
-                    if sales and index < len(sales) and sales[index]:
-                        continue  # Use as-is for now, but flag for review
-                
+
                 historical.append({
                     'period': periods[index] if index < len(periods) else f'Period {index + 1}',
                     'inventory_days': inventory_days or 0,
@@ -111,7 +137,9 @@ class ScreenerService:
                         'ccc': latest['ccc'],
                     },
                     'data_quality': {
-                        'source': 'Screener.in operating-ratios table',
+                        'source': f'Screener.in {statement_type} ratios table',
+                        'source_url': source_url,
+                        'statement_type': statement_type,
                         'periods_used': [item['period'] for item in historical],
                         'cogs_note': 'CCC components are the ratios published by Screener. Blank component rows are excluded from problem flags and shown as zero only because Screener publishes CCC using the available components.',
                         'available_components': {
@@ -163,7 +191,9 @@ class ScreenerService:
             'average_receivables': (latest['receivables'] + previous['receivables']) / 2,
             'average_payables': (latest['payables'] + previous['payables']) / 2,
             'data_quality': {
-                'source': 'Screener.in annual profit-loss and balance-sheet tables',
+                'source': f'Screener.in {statement_type} profit-loss and balance-sheet tables',
+                'source_url': source_url,
+                'statement_type': statement_type,
                 'periods_used': [item['period'] for item in historical],
                 'cogs_note': 'Expenses are used as the closest available COGS proxy from Screener annual statements.'
             },
@@ -210,42 +240,31 @@ class ScreenerService:
         return result
 
     def _read_operating_ratios(self, soup: BeautifulSoup):
-        # Try to find the operating ratios table with all required fields
-        best_match = None
-        best_score = 0
-        
-        for table in soup.find_all('table'):
-            labels = [self._normalise_label(self._text(cell)) for cell in table.select('tbody td.text')]
-            
-            # Check which required fields are present
-            has_debtor = any('debtor' in label for label in labels)
-            has_inventory = any('inventory' in label for label in labels)
-            has_payable = any('payable' in label for label in labels)
-            has_ccc = any('cash conversion' in label for label in labels)
-            
-            score = sum([has_debtor, has_inventory, has_payable, has_ccc])
-            
-            if score >= 2:  # At least debtor days and CCC
-                rows = {}
-                for row in table.select('tbody tr'):
-                    cells = row.select('th, td')
-                    if len(cells) < 2:
-                        continue
-                    label = self._normalise_label(self._text(cells[0]))
-                    values = [self._parse_number(self._text(cell)) for cell in cells[1:]]
-                    rows[label] = values
-                
-                # Prefer tables with all four fields
-                if score > best_score:
-                    best_score = score
-                    header = table.select_one('thead tr')
-                    periods = [self._text(cell) for cell in header.select('th, td')[1:]] if header else []
-                    best_match = (rows, periods)
-                    
-                    if score == 4:  # Perfect match, use immediately
-                        break
-        
-        return best_match if best_match else ({}, [])
+        """Read Screener's published 'Ratios' table verbatim."""
+        table = None
+        section = soup.select_one('section#ratios')
+        if section:
+            table = section.find('table')
+        if table is None:
+            for candidate in soup.find_all('table'):
+                labels = [self._normalise_label(self._text(cell))
+                          for cell in candidate.select('tbody tr th, tbody tr td.text')]
+                if any('cash conversion' in label for label in labels):
+                    table = candidate
+                    break
+        if table is None:
+            return {}, []
+
+        rows = {}
+        for row in table.select('tbody tr'):
+            cells = row.select('th, td')
+            if len(cells) < 2:
+                continue
+            label = self._normalise_label(self._text(cells[0]))
+            rows[label] = [self._parse_number(self._text(cell)) for cell in cells[1:]]
+        header = table.select_one('thead tr')
+        periods = [self._text(cell) for cell in header.select('th, td')[1:]] if header else []
+        return rows, periods
 
     @staticmethod
     def _find_row(rows: Dict[str, List[Optional[float]]], *names: str) -> List[Optional[float]]:

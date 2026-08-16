@@ -49,14 +49,7 @@ async def analyze_single_company(
         
         # Use Screener's published operating ratios when available.
         ccc_components = company_data.get('ccc_components') or CCCAnalysisService.calculate_ccc_components(company_data)
-        
-        # Get the current period from historical data (usually the most recent/latest)
-        historical_data = company_data.get('historical', [])
-        current_period = historical_data[-1].get('period', '') if historical_data else ''
-        
-        # Validate and correct data if needed, including current period
-        ccc_components = DataValidator.validate_and_correct(bse_code, current_period, ccc_components)
-        ccc_components = DataValidator.validate_ccc_calculation(ccc_components)
+        data_warnings = DataValidator.check(ccc_components)
         
         benchmark = CCCAnalysisService.benchmark_for_industry(company_data.get('industry', ''))
         
@@ -78,9 +71,6 @@ async def analyze_single_company(
                     'payable_days': period['payable_days'],
                     'ccc': period['ccc'],
                 }
-                # Validate and correct if needed
-                period_ccc = DataValidator.validate_and_correct(bse_code, period.get('period', ''), period_ccc)
-                period_ccc = DataValidator.validate_ccc_calculation(period_ccc)
             else:
                 period_ccc = CCCAnalysisService.calculate_ccc_components({
                     'average_inventory': period['inventory'],
@@ -114,7 +104,7 @@ async def analyze_single_company(
             },
             "trends": trends,
             "historical_ccc": historical_ccc,
-            "data_quality": company_data.get('data_quality', {}),
+            "data_quality": {**company_data.get('data_quality', {}), 'warnings': data_warnings},
             "benchmark": benchmark,
             "investor_insights": investor_insights,
             "profitability": company_data.get('profitability_data', {})
@@ -138,18 +128,6 @@ async def compare_two_companies(request: ComparisonRequest):
         # Use the same Screener-published ratios as the single-company analysis.
         ccc1 = company1_data.get('ccc_components') or CCCAnalysisService.calculate_ccc_components(company1_data)
         ccc2 = company2_data.get('ccc_components') or CCCAnalysisService.calculate_ccc_components(company2_data)
-        
-        # Get periods from historical data for validation
-        historical1 = company1_data.get('historical', [])
-        historical2 = company2_data.get('historical', [])
-        period1 = historical1[-1].get('period', '') if historical1 else ''
-        period2 = historical2[-1].get('period', '') if historical2 else ''
-        
-        # Validate and correct data
-        ccc1 = DataValidator.validate_and_correct(request.company1_bse, period1, ccc1)
-        ccc1 = DataValidator.validate_ccc_calculation(ccc1)
-        ccc2 = DataValidator.validate_and_correct(request.company2_bse, period2, ccc2)
-        ccc2 = DataValidator.validate_ccc_calculation(ccc2)
         
         benchmark1 = CCCAnalysisService.benchmark_for_industry(company1_data.get('industry', ''))
         benchmark2 = CCCAnalysisService.benchmark_for_industry(company2_data.get('industry', ''))
@@ -189,13 +167,15 @@ async def compare_two_companies(request: ComparisonRequest):
                 "name": company1_data.get('company_name'),
                 "bse_code": request.company1_bse,
                 "ccc": ccc1,
-                "assessment": assessment1
+                "assessment": assessment1,
+                "data_quality": {**company1_data.get('data_quality', {}), 'warnings': DataValidator.check(ccc1)}
             },
             "company2": {
                 "name": company2_data.get('company_name'),
                 "bse_code": request.company2_bse,
                 "ccc": ccc2,
-                "assessment": assessment2
+                "assessment": assessment2,
+                "data_quality": {**company2_data.get('data_quality', {}), 'warnings': DataValidator.check(ccc2)}
             },
             "comparison": comparison_metrics,
             "insights": insights
