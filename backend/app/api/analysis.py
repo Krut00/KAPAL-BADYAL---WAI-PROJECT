@@ -138,6 +138,19 @@ async def compare_two_companies(request: ComparisonRequest):
         # Use the same Screener-published ratios as the single-company analysis.
         ccc1 = company1_data.get('ccc_components') or CCCAnalysisService.calculate_ccc_components(company1_data)
         ccc2 = company2_data.get('ccc_components') or CCCAnalysisService.calculate_ccc_components(company2_data)
+        
+        # Get periods from historical data for validation
+        historical1 = company1_data.get('historical', [])
+        historical2 = company2_data.get('historical', [])
+        period1 = historical1[-1].get('period', '') if historical1 else ''
+        period2 = historical2[-1].get('period', '') if historical2 else ''
+        
+        # Validate and correct data
+        ccc1 = DataValidator.validate_and_correct(request.company1_bse, period1, ccc1)
+        ccc1 = DataValidator.validate_ccc_calculation(ccc1)
+        ccc2 = DataValidator.validate_and_correct(request.company2_bse, period2, ccc2)
+        ccc2 = DataValidator.validate_ccc_calculation(ccc2)
+        
         benchmark1 = CCCAnalysisService.benchmark_for_industry(company1_data.get('industry', ''))
         benchmark2 = CCCAnalysisService.benchmark_for_industry(company2_data.get('industry', ''))
         
