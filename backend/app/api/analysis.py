@@ -50,7 +50,12 @@ async def analyze_single_company(
         # Use Screener's published operating ratios when available.
         ccc_components = company_data.get('ccc_components') or CCCAnalysisService.calculate_ccc_components(company_data)
         
-        # Validate and correct data if needed
+        # Get the current period from historical data (usually the most recent/latest)
+        historical_data = company_data.get('historical', [])
+        current_period = historical_data[-1].get('period', '') if historical_data else ''
+        
+        # Validate and correct data if needed, including current period
+        ccc_components = DataValidator.validate_and_correct(bse_code, current_period, ccc_components)
         ccc_components = DataValidator.validate_ccc_calculation(ccc_components)
         
         benchmark = CCCAnalysisService.benchmark_for_industry(company_data.get('industry', ''))
