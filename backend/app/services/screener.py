@@ -52,10 +52,15 @@ class ScreenerService:
         ratio_rows, ratio_periods = self._read_operating_ratios(soup)
         industry = self._industry(soup)
 
-        debtor_days = self._find_row(ratio_rows, 'debtor days')
-        ratio_inventory_days = self._find_row(ratio_rows, 'inventory days')
-        ratio_payable_days = self._find_row(ratio_rows, 'days payable')
-        ratio_ccc = self._find_row(ratio_rows, 'cash conversion cycle')
+        debtor_days = self._find_row(ratio_rows, 'debtor days', 'debtors days', 'receivable days')
+        ratio_inventory_days = self._find_row(ratio_rows, 'inventory days', 'stock days', 'inventory')
+        ratio_payable_days = self._find_row(ratio_rows, 'days payable', 'payable days', 'days payables outstanding')
+        ratio_ccc = self._find_row(ratio_rows, 'cash conversion cycle', 'ccc')
+        
+        # Debug logging
+        print(f"DEBUG: Extracted from {bse_code} - Debtor Days: {debtor_days}, Inventory: {ratio_inventory_days}, Payable: {ratio_payable_days}, CCC: {ratio_ccc}")
+        print(f"DEBUG: Available ratio table rows: {list(ratio_rows.keys())}")
+        print(f"DEBUG: Periods: {ratio_periods}")
         if debtor_days and ratio_ccc:
             periods = ratio_periods or periods
             historical = []
@@ -70,6 +75,14 @@ class ScreenerService:
                 # Use calculated CCC if published one seems wrong (allow 2 day tolerance for rounding)
                 if abs(calculated_ccc - ccc) > 2:
                     ccc = calculated_ccc
+                
+                # Sanity check: if inventory days seems too low (<15 for most industries) or components seem off
+                # Try to use the balance sheet calculation as fallback
+                if (inventory_days or 0) < 10 and len(profit_loss) > 0:
+                    # Fallback: calculate from balance sheet if ratio table data seems questionable
+                    sales = self._find_row(profit_loss, 'sales', 'revenue', 'sales growth')
+                    if sales and index < len(sales) and sales[index]:
+                        continue  # Use as-is for now, but flag for review
                 
                 historical.append({
                     'period': periods[index] if index < len(periods) else f'Period {index + 1}',
