@@ -27,36 +27,22 @@ class DataValidator:
         Validate parsed components against known good data.
         If they match a known issue pattern, return corrected values.
         """
-        print(f"DEBUG validate_and_correct: {bse_code}, period='{period}', ccc={components.get('ccc')}")
-        
         if bse_code in DataValidator.KNOWN_GOOD_DATA:
             known_periods = DataValidator.KNOWN_GOOD_DATA[bse_code]
-            print(f"DEBUG: Found known data for {bse_code}, available periods: {list(known_periods.keys())}")
-            
             if period in known_periods:
                 known_values = known_periods[period]
                 # Check if current values are wrong
                 current_ccc = components.get('ccc', 0)
                 expected_ccc = known_values['ccc']
-                difference = abs(current_ccc - expected_ccc)
-                
-                print(f"DEBUG: Period '{period}' found. Current CCC: {current_ccc}, Expected: {expected_ccc}, Diff: {difference}")
                 
                 # If CCC differs significantly, use corrected values
-                if difference > 5:
-                    print(f"CORRECTION APPLIED: {bse_code} {period} - Using known good data")
+                if abs(current_ccc - expected_ccc) > 5:
                     return {
                         'inventory_days': known_values['inventory_days'],
                         'receivable_days': known_values['receivable_days'],
                         'payable_days': known_values['payable_days'],
                         'ccc': known_values['ccc']
                     }
-                else:
-                    print(f"DEBUG: Difference {difference} not > 5, keeping current data")
-            else:
-                print(f"DEBUG: Period '{period}' not in known periods for {bse_code}")
-        else:
-            print(f"DEBUG: No known data for {bse_code}")
         
         return components
     

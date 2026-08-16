@@ -56,11 +56,6 @@ class ScreenerService:
         ratio_inventory_days = self._find_row(ratio_rows, 'inventory days', 'stock days', 'inventory')
         ratio_payable_days = self._find_row(ratio_rows, 'days payable', 'payable days', 'days payables outstanding')
         ratio_ccc = self._find_row(ratio_rows, 'cash conversion cycle', 'ccc')
-        
-        # Debug logging
-        print(f"DEBUG: Extracted from {bse_code} - Debtor Days: {debtor_days}, Inventory: {ratio_inventory_days}, Payable: {ratio_payable_days}, CCC: {ratio_ccc}")
-        print(f"DEBUG: Available ratio table rows: {list(ratio_rows.keys())}")
-        print(f"DEBUG: Periods: {ratio_periods}")
         if debtor_days and ratio_ccc:
             periods = ratio_periods or periods
             historical = []
