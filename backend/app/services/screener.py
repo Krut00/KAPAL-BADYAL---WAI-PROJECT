@@ -64,6 +64,13 @@ class ScreenerService:
                     continue
                 inventory_days = ratio_inventory_days[index] if index < len(ratio_inventory_days) else 0
                 payable_days = ratio_payable_days[index] if index < len(ratio_payable_days) else 0
+                
+                # Validate CCC calculation: CCC = inventory + receivable - payable
+                calculated_ccc = (inventory_days or 0) + (debtor_days[index] or 0) - (payable_days or 0)
+                # Use calculated CCC if published one seems wrong (allow 2 day tolerance for rounding)
+                if abs(calculated_ccc - ccc) > 2:
+                    ccc = calculated_ccc
+                
                 historical.append({
                     'period': periods[index] if index < len(periods) else f'Period {index + 1}',
                     'inventory_days': inventory_days or 0,
@@ -218,11 +225,27 @@ class ScreenerService:
             for label, values in rows.items():
                 if label == normalised or label.startswith(normalised):
                     return values
+        # If exact match not found, try partial matching for specific terms
+        for name in names:
+            for label, values in rows.items():
+                label_lower = label.lower()
+                if 'debtor' in name.lower() and ('debtor' in label_lower or 'receivable' in label_lower):
+                    return values
+                elif 'inventory' in name.lower() and 'inventory' in label_lower:
+                    return values
+                elif 'payable' in name.lower() and ('payable' in label_lower or 'payable outstanding' in label_lower):
+                    return values
+                elif 'cash conversion' in name.lower() and 'cash conversion' in label_lower:
+                    return values
         return []
 
     @staticmethod
     def _normalise_label(value: str) -> str:
-        return re.sub(r'[^a-z0-9 ]', '', value.lower()).strip()
+        # Remove special characters and convert to lowercase
+        normalized = re.sub(r'[^a-z0-9 ]', '', value.lower()).strip()
+        # Remove extra spaces
+        normalized = ' '.join(normalized.split())
+        return normalized
 
     @staticmethod
     def _parse_number(value: str) -> Optional[float]:
